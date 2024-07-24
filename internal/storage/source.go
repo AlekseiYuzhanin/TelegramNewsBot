@@ -44,9 +44,35 @@ func (s *SourceStorage) SourceById(ctx context.Context, id int64) (*model.Source
 	return (*model.Source)(&source), nil
 }
 
-func (s *SourceStorage) Add(ctx context.Context, source model.Source) (int64,error) {}
+func (s *SourceStorage) Add(ctx context.Context, source model.Source) (int64,error) {
+	conn, err := s.db.Connx(ctx)
+	if err != nil{
+		return 0, err
+	}
+	defer conn.Close()
+	var id int64
 
-func (s *SourceStorage) Delete(ctx context.Context, id int64) error {}
+	row := conn.QueryRowxContext(
+		ctx,
+		`INSERT INTO sources (name, feed_url, created_at) VALUES ($1 $2 $3) RETURNING id`,
+		source.Name,
+		source.FeedURL,
+		source.CreatedAt,
+	)
+
+	if err := row.Err(); err != nil{
+		return 0, err
+	}
+	if err := row.Scan(&id); err != nil{
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func (s *SourceStorage) Delete(ctx context.Context, id int64) error {
+	
+}
 
 type dbSource struct {
 	ID int64 `db:"id"`
