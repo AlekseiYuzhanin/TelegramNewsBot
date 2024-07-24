@@ -10,3 +10,21 @@ type Item struct{
 	Summary string
 	SourceName string
 }
+
+type Source struct {
+	ID int64
+	Name string
+	FeedURL string
+	CreatedAt time.Time
+}
+
+type Article struct {
+	ID int64
+	SourceId int64
+	Title string
+	Link string
+	Summary string
+	PublishedAt time.Time
+	PostedAt time.Time
+	CreatedAt time.Time
+}
