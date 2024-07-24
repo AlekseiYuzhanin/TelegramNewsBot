@@ -71,7 +71,17 @@ func (s *SourceStorage) Add(ctx context.Context, source model.Source) (int64,err
 }
 
 func (s *SourceStorage) Delete(ctx context.Context, id int64) error {
-	
+	conn, err := s.db.Connx(ctx)
+	if err != nil{
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(ctx, `DELETE FROM sources WHERE id = $1`, id);err != nil{
+		return err
+	}
+
+	return nil
 }
 
 type dbSource struct {
