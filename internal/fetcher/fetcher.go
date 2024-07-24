@@ -1,10 +1,12 @@
 package fetcher
 
 import (
-	"app/internal/storage/model"
 	"app/internal/source"
+	"app/internal/storage/model"
 	"context"
+	"log"
 	"sync"
+	"go.tomakado.io/containers/set"
 	"time"
 )
 
@@ -57,7 +59,37 @@ func (f *Fetcher) Fetch(ctx context.Context) error {
 		rssSource := source.NewRSSSourceFromModel(src)
 
 		go func(source Source){
-			
-		}(src)
+			defer wg.Done()
+
+			items, err := source.Fetch(ctx)
+			if err != nil{
+				log.Printf("[ERROR] Fetching items from source %s: %v", source.Name(), err)
+				return
+			}
+
+			if err := f.processItems(ctx, source, items); err != nil{
+				log.Printf("[ERROR] Processing items from source %s: %v", source.Name(),err)
+				return
+			}
+		}(rssSource)
+	}
+
+	wg.Wait()
+	return nil
+}
+
+func (f *Fetcher) processItems(ctx context.Context, source Source, items []model.Item) {
+	for _, item := range items{
+		item.Date = item.Date.UTC()
+	}
+}
+
+func (f *Fetcher) itemShouldBeSkipped(item model.Item) bool{
+	categoriesSet := set.New(item.Categories...)
+
+	for _, keyword := range f.filteredKeywords{
+		if categoriesSet.Contains(keyword){
+			return true
+		}
 	}
 }
