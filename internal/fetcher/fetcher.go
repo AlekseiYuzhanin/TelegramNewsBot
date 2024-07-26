@@ -5,9 +5,11 @@ import (
 	"app/internal/storage/model"
 	"context"
 	"log"
+	"strings"
 	"sync"
-	"go.tomakado.io/containers/set"
 	"time"
+
+	"go.tomakado.io/containers/set"
 )
 
 type ArticleStorage interface{
@@ -46,6 +48,26 @@ func New(
 	}
 }
 
+func (f *Fetcher) Start(ctx context.Context) error{
+	ticker := time.NewTicker(f.fetchInterval)
+	defer ticker.Stop()
+
+	if err := f.Fetch(ctx); err != nil{
+		return err
+	}
+
+	for {
+		select {
+		case <- ctx.Done():
+			return ctx.Err()
+		case <- ticker.C:
+			if err := f.Fetch(ctx); err != nil{
+				return err
+			}
+		}
+	}
+}
+
 func (f *Fetcher) Fetch(ctx context.Context) error {
 	sources, err := f.sources.Sources(ctx)
 	if err != nil{
@@ -78,18 +100,37 @@ func (f *Fetcher) Fetch(ctx context.Context) error {
 	return nil
 }
 
-func (f *Fetcher) processItems(ctx context.Context, source Source, items []model.Item) {
+func (f *Fetcher) processItems(ctx context.Context, source Source, items []model.Item) error{
 	for _, item := range items{
 		item.Date = item.Date.UTC()
+
+		if f.itemShouldBeSkipped(item){
+			continue
+		}
+
+		if err := f.articles.Store(ctx, model.Article{
+			SourceID: source.ID(),
+			Title: item.Title,
+			Link: item.Link,
+			Summary: item.Summary,
+			PublishedAt: item.Date,
+		}); err != nil{
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (f *Fetcher) itemShouldBeSkipped(item model.Item) bool{
 	categoriesSet := set.New(item.Categories...)
 
 	for _, keyword := range f.filteredKeywords{
-		if categoriesSet.Contains(keyword){
+		titleContainsKeyword := strings.Contains(strings.ToLower(item.Title), keyword)
+		if categoriesSet.Contains(keyword) || titleContainsKeyword{
 			return true
 		}
 	}
+
+	return false
 }

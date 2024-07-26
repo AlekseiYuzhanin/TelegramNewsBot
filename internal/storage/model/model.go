@@ -20,7 +20,7 @@ type Source struct {
 
 type Article struct {
 	ID int64
-	SourceId int64
+	SourceID int64
 	Title string
 	Link string
 	Summary string
